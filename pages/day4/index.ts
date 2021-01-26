@@ -3,6 +3,7 @@ import fragment from './glsl/main.frag';
 import vertex from './glsl/main.vert';
 import { Sphere } from './models/sphere';
 import { Torus } from './models/torus';
+import { Cube } from './models/cube';
 import * as quat from './math/quat';
 import * as images from '../assets/*.jpg';
 
@@ -52,6 +53,7 @@ class main {
         };
     };
     private torusVBO: vbo;
+    private cubeVBO: vbo;
 
     private camera: {
         position: vec3;
@@ -97,7 +99,15 @@ class main {
             index: this.createIBO(gl, torus.idx),
             rawIndex: torus.idx,
         };
-        console.log(torus);
+
+        const cube = new Cube(1);
+        this.cubeVBO = {
+            position: this.createVBO(gl, cube.pos),
+            color: this.createVBO(gl, cube.col),
+            normal: this.createVBO(gl, cube.normal),
+            index: this.createIBO(gl, cube.idx),
+            rawIndex: cube.idx,
+        };
 
         this.uLocation = {
             mvpMatrix: gl.getUniformLocation(
@@ -123,7 +133,7 @@ class main {
         };
 
         this.camera = {
-            position: [0, 0, 10],
+            position: [0, 0, 20],
             upDir: [0, 1, 0],
             quat: quat.identity(quat.create()),
         };
@@ -142,9 +152,6 @@ class main {
             this.uniforms.vMat
         );
 
-        gl.enable(gl.DEPTH_TEST);
-        gl.enable(gl.CULL_FACE);
-
         this.createCubeTexure(gl, [
             { name: 'negx', target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X },
             { name: 'negy', target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y },
@@ -153,7 +160,8 @@ class main {
             { name: 'posy', target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y },
             { name: 'posz', target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z },
         ]);
-
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
         this.loop(gl, 0);
     }
     render(gl: WebGLRenderingContext, counter: number) {
@@ -165,8 +173,8 @@ class main {
         const rad2 = ((counter % 720) * Math.PI) / 360;
 
         quat.rotate(rad2, [1, 0, 0], this.camera.quat);
-        // quat.toVecIII([0.0, 0.0, 10.0], this.camera.quat, this.camera.position);
-        // quat.toVecIII([0.0, 1.0, 0.0], this.camera.quat, this.camera.upDir);
+        quat.toVecIII([0.0, 0.0, 10.0], this.camera.quat, this.camera.position);
+        quat.toVecIII([0.0, 1.0, 0.0], this.camera.quat, this.camera.upDir);
 
         mat4.lookAt(
             this.uniforms.vMat,
@@ -179,16 +187,45 @@ class main {
             Math.PI / 2,
             innerWidth / innerHeight,
             0.1,
-            100
+            200
         );
         mat4.multiply(
             this.uniforms.vpMat,
             this.uniforms.pMat,
             this.uniforms.vMat
         );
+        gl.uniform3fv(this.uLocation.cameraPos, this.camera.position);
+        // set image
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeTex);
+        gl.uniform1i(this.uLocation.cubeTexture, 0);
 
+        // cube
+        gl.uniform1i(this.uLocation.reflection, 1);
         mat4.identity(this.uniforms.mMat);
-        mat4.translate(this.uniforms.mMat, this.uniforms.mMat, [0, 0, -3]);
+        mat4.scale(this.uniforms.mMat, this.uniforms.mMat, [100, 100, 100]);
+        mat4.multiply(
+            this.uniforms.mvpMat,
+            this.uniforms.vpMat,
+            this.uniforms.mMat
+        );
+        gl.uniformMatrix4fv(
+            this.uLocation.mvpMatrix,
+            false,
+            this.uniforms.mvpMat
+        );
+        gl.uniformMatrix4fv(this.uLocation.mMatrix, false, this.uniforms.mMat);
+        this.setAttr(gl, this.cubeVBO);
+        gl.drawElements(
+            gl.TRIANGLES,
+            this.cubeVBO.rawIndex.length,
+            gl.UNSIGNED_SHORT,
+            0
+        );
+
+        // torus draw
+        mat4.identity(this.uniforms.mMat);
+        mat4.translate(this.uniforms.mMat, this.uniforms.mMat, [0, 0, 0]);
         mat4.rotate(this.uniforms.mMat, this.uniforms.mMat, rad, [0, 1, 1]);
         mat4.multiply(
             this.uniforms.mvpMat,
@@ -202,13 +239,7 @@ class main {
         );
         gl.uniformMatrix4fv(this.uLocation.mMatrix, false, this.uniforms.mMat);
 
-        // set image
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.cubeTex);
-        gl.uniform1i(this.uLocation.cubeTexture, 0);
-
-        // torus draw
-        gl.uniform1i(this.uLocation.reflection, 1);
+        gl.uniform1i(this.uLocation.reflection, 0);
         this.setAttr(gl, this.torusVBO);
         gl.drawElements(
             gl.TRIANGLES,
