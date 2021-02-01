@@ -247,7 +247,7 @@ class main {
             0,
             1,
         ];
-        const b = this.createFrameBuffer(gl, 512 * 2, 512 * 2);
+        const b = this.createFrameBuffer(gl, innerWidth, innerHeight);
         if (!b) return;
         this.buff = b;
         console.log(b);
@@ -259,7 +259,7 @@ class main {
     }
     render(gl: WebGLRenderingContext, counter: number) {
         // vpMatrix
-        //  quat.rotate((Math.PI / 180) * 70, [0, 0, 1], this.camera.quat);
+        quat.rotate((Math.PI / 180) * 20, [0, 0, 1], this.camera.quat);
         quat.toVecIII([0, 70, 0], this.camera.quat, this.camera.position);
         quat.toVecIII([0, 0, -1], this.camera.quat, this.camera.upDir);
         mat4.lookAt(
@@ -282,7 +282,7 @@ class main {
         );
 
         // light
-        this.light.position = [0, 15, 0];
+        this.light.position = [0, 20, 0];
         this.uniforms.tMatrix = [
             0.5,
             0,
@@ -305,7 +305,7 @@ class main {
         mat4.lookAt(
             this.uniforms.lvMat,
             this.light.position,
-            [0, 0, 0],
+            [0, -10, 0],
             this.light.upDir
         );
         mat4.perspective(this.uniforms.lpMat, Math.PI / 2, 1, 0.1, 150);
@@ -377,7 +377,7 @@ class main {
         // plane
         this.setAttr(gl, this.dProg.attr, this.planeVBO);
         mat4.identity(this.uniforms.mMat);
-        mat4.translate(this.uniforms.mMat, this.uniforms.mMat, [0, -10, 0]);
+        mat4.translate(this.uniforms.mMat, this.uniforms.mMat, [10, -10, 0]);
         mat4.scale(this.uniforms.mMat, this.uniforms.mMat, [30, 0, 30]);
         mat4.multiply(
             this.uniforms.lmvpMat,
@@ -464,7 +464,7 @@ class main {
 
         this.setAttr(gl, this.mProg.attr, this.planeVBO);
         mat4.identity(this.uniforms.mMat);
-        mat4.translate(this.uniforms.mMat, this.uniforms.mMat, [0, -10, 0]);
+        mat4.translate(this.uniforms.mMat, this.uniforms.mMat, [10, -10, 0]);
         mat4.scale(this.uniforms.mMat, this.uniforms.mMat, [30, 0, 30]);
         mat4.multiply(
             this.uniforms.mvpMat,
