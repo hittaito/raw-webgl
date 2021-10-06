@@ -22,7 +22,7 @@
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "dev": "parcel pages/*/*.html pages/assets/*.jpg --out-dir dev --port 11234"
+        "dev": "parcel pages/*/*.html pages/assets/*.jpg pages/assets/*.png --out-dir dev --port 11234"
     },
     "browserslist": [
         "since 2017-06"

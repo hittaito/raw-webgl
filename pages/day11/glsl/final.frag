@@ -9,15 +9,13 @@ in vec2 vTexCoord2;
 
 out vec4 outColor;
 
-const float PI  = 3.141592653589793;
-
 void main() {
     vec2 uv = vTexCoord1;
-    uv.y = clamp(uv.y, 0.0, 0.5 + 0.5 * sin(time * .02));
+    // uv.y = clamp(uv.y, 0.0, 0.5 + 0.5 * sin(time * .02));
     float d1 = texture(img, uv).r;
     float d2 = texture(img, vTexCoord2).r;
     float d = mix(d1, d2, .5 * (1. + sin(time * 0.03)));
-    vec4 c = vec4(.4, .2, .2, 1.) * step(clamp(d1 - .1, 0.0, 1.0), .001);
+    vec4 c = vec4(.4, .2, .2, 1.) * step(clamp(d - .1, 0.0, 1.0), .001);
 
-    outColor = vec4(vec3(d2) ,1.);
+    outColor = c;//vec4(vec3(c.yyy) ,1.);
 }

@@ -9,7 +9,6 @@ layout(location = 2) in float id;
 
 out vec2 vTexCoord1;
 out vec2 vTexCoord2;
-out vec2 vTexCoord0;
 
 vec2 convertTexCoord(float index) {
     float w = 1. / split;
@@ -22,7 +21,6 @@ vec2 convertTexCoord(float index) {
 }
 
 void main() {
-    vTexCoord0 = texCood;
     vTexCoord1 = convertTexCoord(id);
     vTexCoord2 = convertTexCoord(id + 1.);
 

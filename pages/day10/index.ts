@@ -29,12 +29,13 @@ class Main {
 
     frameBuffer1: frameBuffer;
     frameBuffer2: frameBuffer;
+    frameBuffer3: frameBuffer;
 
     // final draw
     prg4: WebGLProgram;
     uniform4: Map<LocationName4, WebGLUniformLocation>;
     attribute4: WebGLVertexArrayObject;
-    frameBuffer3: frameBuffer;
+    frameBuffer4: frameBuffer;
 
     index: WebGLBuffer;
     position: WebGLBuffer;
@@ -44,12 +45,14 @@ class Main {
     init() {
         const canvas = document.getElementById('contents') as HTMLCanvasElement;
         const dpr = window.devicePixelRatio || 1;
+        //if (dpr === 1) dpr = 2;
         canvas.width = 1024 * dpr;
         canvas.height = 1024 * dpr;
         const gl = canvas.getContext('webgl2');
         if (!gl) return;
-        gl.getExtension('EXT_color_buffer_float');
-
+        gl.getExtension('OES_texture_float');
+        const n = gl.getExtension('EXT_color_buffer_float');
+        // console.log(n);
         this.createTextCanvas(gl).then(() => {
             this.setUp(gl);
         });
@@ -62,7 +65,7 @@ class Main {
         if (!prg) return;
         this.prg1 = prg;
 
-        this.uniform1 = this.setUniformLocation(gl, prg, ['mvpMatrix', 'img']);
+        this.uniform1 = this.setUniformLocation(gl, prg, ['mvpMatrix', 'img', 'flag']);
         const vao = this.createAttribute(gl);
         if (!vao) return;
         this.attribute1 = vao;
@@ -72,12 +75,7 @@ class Main {
         const prg2 = this.createProgram(gl, shader2);
         if (!prg2) return;
         this.prg2 = prg2;
-        this.uniform2 = this.setUniformLocation(gl, prg2, [
-            'mvpMatrix',
-            'img1',
-            'img2',
-            'img0',
-        ]);
+        this.uniform2 = this.setUniformLocation(gl, prg2, ['mvpMatrix', 'img1', 'img2', 'img3', 'img4']);
         const vao2 = this.create2ndAttribute(gl);
         if (!vao2) return;
         this.attribute2 = vao2;
@@ -87,11 +85,7 @@ class Main {
         const prg3 = this.createProgram(gl, shader3);
         if (!prg3) return;
         this.prg3 = prg3;
-        this.uniform3 = this.setUniformLocation(gl, prg3, [
-            'mvpMatrix',
-            'img1',
-            'img2',
-        ]);
+        this.uniform3 = this.setUniformLocation(gl, prg3, ['mvpMatrix', 'img1', 'img2']);
         const vao3 = this.create2ndAttribute(gl);
         if (!vao3) return;
         this.attribute3 = vao3;
@@ -102,12 +96,7 @@ class Main {
         if (!prg4) return;
         this.prg4 = prg4;
 
-        this.uniform4 = this.setUniformLocation(gl, prg4, [
-            'mvpMatrix',
-            'img',
-            'split',
-            'time',
-        ]);
+        this.uniform4 = this.setUniformLocation(gl, prg4, ['mvpMatrix', 'img', 'split', 'time']);
         const vao4 = this.create3rdAttribute(gl);
         if (!vao4) return;
         this.attribute4 = vao4;
@@ -122,21 +111,27 @@ class Main {
         mat4.mul(this.matrix.vpMat, this.matrix.pMat, this.matrix.vMat);
 
         // create frame buffer
-        const buffer1 = this.createMRTBuffer(gl, 1024, 2);
+        const buffer1 = this.createMRTBuffer(gl, 1024, 4);
         if (!buffer1) return;
         this.frameBuffer1 = buffer1;
         gl.bindFramebuffer(gl.FRAMEBUFFER, buffer1.frameBuffer);
-        gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3]);
 
-        const buffer2 = this.createMRTBuffer(gl, 1024, 2);
+        const buffer2 = this.createMRTBuffer(gl, 1024, 4);
         if (!buffer2) return;
         this.frameBuffer2 = buffer2;
         gl.bindFramebuffer(gl.FRAMEBUFFER, buffer2.frameBuffer);
-        gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3]);
 
-        const buffer3 = this.createBuffer(gl, 1024);
+        const buffer3 = this.createMRTBuffer(gl, 1024, 4);
         if (!buffer3) return;
         this.frameBuffer3 = buffer3;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, buffer3.frameBuffer);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3]);
+
+        const buffer4 = this.createBuffer(gl, 1024);
+        if (!buffer4) return;
+        this.frameBuffer4 = buffer4;
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -145,11 +140,27 @@ class Main {
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, buffer1.textures[1]);
         gl.activeTexture(gl.TEXTURE3);
-        gl.bindTexture(gl.TEXTURE_2D, buffer2.textures[0]);
+        gl.bindTexture(gl.TEXTURE_2D, buffer1.textures[2]);
         gl.activeTexture(gl.TEXTURE4);
-        gl.bindTexture(gl.TEXTURE_2D, buffer2.textures[1]);
+        gl.bindTexture(gl.TEXTURE_2D, buffer1.textures[3]);
         gl.activeTexture(gl.TEXTURE5);
+        gl.bindTexture(gl.TEXTURE_2D, buffer2.textures[0]);
+        gl.activeTexture(gl.TEXTURE6);
+        gl.bindTexture(gl.TEXTURE_2D, buffer2.textures[1]);
+        gl.activeTexture(gl.TEXTURE7);
+        gl.bindTexture(gl.TEXTURE_2D, buffer2.textures[2]);
+        gl.activeTexture(gl.TEXTURE8);
+        gl.bindTexture(gl.TEXTURE_2D, buffer2.textures[3]);
+        gl.activeTexture(gl.TEXTURE9);
         gl.bindTexture(gl.TEXTURE_2D, buffer3.textures[0]);
+        gl.activeTexture(gl.TEXTURE10);
+        gl.bindTexture(gl.TEXTURE_2D, buffer3.textures[1]);
+        gl.activeTexture(gl.TEXTURE11);
+        gl.bindTexture(gl.TEXTURE_2D, buffer3.textures[2]);
+        gl.activeTexture(gl.TEXTURE12);
+        gl.bindTexture(gl.TEXTURE_2D, buffer3.textures[3]);
+        gl.activeTexture(gl.TEXTURE13);
+        gl.bindTexture(gl.TEXTURE_2D, buffer4.textures[0]);
 
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
@@ -158,62 +169,33 @@ class Main {
         this.prepare(gl);
     }
     prepare(gl: WebGL2RenderingContext) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer1.frameBuffer);
-
-        // first
-        gl.useProgram(this.prg1);
-
+        console.log('prepare');
+        this.prepare2(gl, false);
+        console.log('prepare2');
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer3.frameBuffer);
+        gl.useProgram(this.prg2);
         gl.clearColor(0, 0, 0, 1);
         gl.clearDepth(1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        gl.bindVertexArray(this.attribute1);
-        const img = this.uniform1.get('img');
-        const mvpMatrix = this.uniform1.get('mvpMatrix');
-        if (!img || !mvpMatrix) return;
-        gl.uniform1i(img, 0);
-        gl.uniformMatrix4fv(mvpMatrix, false, this.matrix.vpMat);
+        gl.bindVertexArray(this.attribute2);
+        const img1b = this.uniform2.get('img1');
+        const img2b = this.uniform2.get('img2');
+        const img3b = this.uniform2.get('img3');
+        const img4b = this.uniform2.get('img4');
+        const mvpMatrix2a = this.uniform2.get('mvpMatrix');
+        console.log(this.uniform3);
+        if (!img1b || !img2b || !mvpMatrix2a || !img3b || !img4b) return;
+        gl.uniform1i(img1b, 5);
+        gl.uniform1i(img2b, 6);
+        gl.uniform1i(img3b, 7);
+        gl.uniform1i(img4b, 8);
+        gl.uniformMatrix4fv(mvpMatrix2a, false, this.matrix.vpMat);
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        console.log('prepare3');
+        // outside
+        this.prepare2(gl, true);
 
-        // second
-
-        for (let i = 0; i < 4; i++) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer2.frameBuffer);
-            gl.useProgram(this.prg2);
-            gl.clearColor(0, 0, 0, 1);
-            gl.clearDepth(1);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.bindVertexArray(this.attribute2);
-            const img1 = this.uniform2.get('img1');
-            const img2 = this.uniform2.get('img2');
-            const img0 = this.uniform2.get('img0');
-            const mvpMatrix2 = this.uniform2.get('mvpMatrix');
-            if (!img1 || !img2 || !img0 || !mvpMatrix2) return;
-            gl.uniform1i(img0, 0);
-            gl.uniform1i(img1, 1);
-            gl.uniform1i(img2, 2);
-            gl.uniformMatrix4fv(mvpMatrix2, false, this.matrix.vpMat);
-            gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer1.frameBuffer);
-            gl.useProgram(this.prg2);
-            gl.clearColor(0, 0, 0, 1);
-            gl.clearDepth(1);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            gl.bindVertexArray(this.attribute2);
-            const img1a = this.uniform2.get('img1');
-            const img2a = this.uniform2.get('img2');
-            const img0a = this.uniform2.get('img0');
-            const mvpMatrix2a = this.uniform2.get('mvpMatrix');
-            if (!img1a || !img2a || !mvpMatrix2a || !img0a) return;
-            gl.uniform1i(img0a, 0);
-            gl.uniform1i(img1a, 3);
-            gl.uniform1i(img2a, 4);
-            gl.uniformMatrix4fv(mvpMatrix2a, false, this.matrix.vpMat);
-            gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-        }
-        console.log(this.frameBuffer3);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer3.frameBuffer);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer4.frameBuffer);
         console.log('third');
         // third
         gl.useProgram(this.prg3);
@@ -226,20 +208,85 @@ class Main {
         const img4 = this.uniform3.get('img2');
         const mvpMatrix3 = this.uniform3.get('mvpMatrix');
         if (!img3 || !img4 || !mvpMatrix3) return;
-        gl.uniform1i(img3, 1);
-        gl.uniform1i(img4, 2);
+        gl.uniform1i(img3, 11);
+        gl.uniform1i(img4, 3);
         gl.uniformMatrix4fv(mvpMatrix3, false, this.matrix.vpMat);
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 
         console.log('fin');
         gl.flush();
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         // this.render(gl, 0);
         requestAnimationFrame(() => this.render(gl, 0));
     }
+    prepare2(gl: WebGL2RenderingContext, b: boolean) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer1.frameBuffer);
+
+        // first
+        gl.useProgram(this.prg1);
+
+        gl.clearColor(0, 0, 0, 1);
+        gl.clearDepth(1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.bindVertexArray(this.attribute1);
+        const img = this.uniform1.get('img');
+        const flag = this.uniform1.get('flag');
+        const mvpMatrix = this.uniform1.get('mvpMatrix');
+        if (!img || !mvpMatrix || !flag) return;
+        gl.uniform1i(img, 0);
+        gl.uniform1f(flag, b ? 0 : 1);
+        gl.uniformMatrix4fv(mvpMatrix, false, this.matrix.vpMat);
+        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+
+        // second
+
+        for (let i = 0; i < 4; i++) {
+            console.log('aa');
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer2.frameBuffer);
+            gl.useProgram(this.prg2);
+            gl.clearColor(0, 0, 0, 1);
+            gl.clearDepth(1);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.bindVertexArray(this.attribute2);
+            const img1 = this.uniform2.get('img1');
+            const img2 = this.uniform2.get('img2');
+            const img3 = this.uniform2.get('img3');
+            const img4 = this.uniform2.get('img4');
+
+            const mvpMatrix2 = this.uniform2.get('mvpMatrix');
+            if (!img1 || !img2 || !img3 || !img4 || !mvpMatrix2) return;
+            gl.uniform1i(img1, 1);
+            gl.uniform1i(img2, 2);
+            gl.uniform1i(img3, 3);
+            gl.uniform1i(img4, 4);
+            gl.uniformMatrix4fv(mvpMatrix2, false, this.matrix.vpMat);
+            gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffer1.frameBuffer);
+            gl.useProgram(this.prg2);
+            gl.clearColor(0, 0, 0, 1);
+            gl.clearDepth(1);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.bindVertexArray(this.attribute2);
+            const img1a = this.uniform2.get('img1');
+            const img2a = this.uniform2.get('img2');
+            const img3a = this.uniform2.get('img3');
+            const img4a = this.uniform2.get('img4');
+            const mvpMatrix2a = this.uniform2.get('mvpMatrix');
+            if (!img1a || !img2a || !mvpMatrix2a || !img3a || !img4a) return;
+            gl.uniform1i(img1a, 5);
+            gl.uniform1i(img2a, 6);
+            gl.uniform1i(img3a, 7);
+            gl.uniform1i(img4a, 8);
+            gl.uniformMatrix4fv(mvpMatrix2a, false, this.matrix.vpMat);
+            gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        }
+    }
     render(gl: WebGL2RenderingContext, step: number) {
         gl.useProgram(this.prg4);
-        gl.clearColor(0, 0, 0, 1);
+        gl.clearColor(1, 0, 0, 1);
         gl.clearDepth(1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.bindVertexArray(this.attribute4);
@@ -249,12 +296,13 @@ class Main {
         const mvpMatrix3 = this.uniform4.get('mvpMatrix');
 
         if (!img || !split || !time || !mvpMatrix3) return;
-        gl.uniform1i(img, 5);
+        gl.uniform1i(img, 13);
         gl.uniform1f(split, 5);
         gl.uniform1f(time, step);
         gl.uniformMatrix4fv(mvpMatrix3, false, this.matrix.vpMat);
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 
+        console.log('end');
         requestAnimationFrame(() => this.render(gl, step + 1));
         gl.flush();
     }
@@ -278,8 +326,7 @@ class Main {
         context.fillStyle = '#ffffff';
         text.split('').forEach((c, i) => {
             const x = (i % (SIZE / fontSize)) * fontSize + fontSize / 2;
-            const y =
-                Math.floor(i / (SIZE / fontSize)) * fontSize + fontSize * 0.9;
+            const y = Math.floor(i / (SIZE / fontSize)) * fontSize + fontSize * 0.9;
             context.fillText(c, x, y, fontSize);
         });
 
@@ -289,20 +336,9 @@ class Main {
         const texture = gl.createTexture();
         if (!texture) return;
         gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            canvas
-        );
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(
-            gl.TEXTURE_2D,
-            gl.TEXTURE_MIN_FILTER,
-            gl.LINEAR_MIPMAP_NEAREST
-        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
         gl.generateMipmap(gl.TEXTURE_2D);
         gl.bindTexture(gl.TEXTURE_2D, null);
 
@@ -338,6 +374,7 @@ class Main {
         gl.compileShader(fs);
         if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
             console.error(gl.getShaderInfoLog(fs));
+            console.log(frag);
             return;
         }
         return {
@@ -357,11 +394,7 @@ class Main {
         }
         return prg;
     }
-    setUniformLocation<T extends LocationName | LocationName2 | LocationName4>(
-        gl: WebGL2RenderingContext,
-        prg: WebGLProgram,
-        uniforms: T[]
-    ) {
+    setUniformLocation<T extends LocationName | LocationName2 | LocationName4>(gl: WebGL2RenderingContext, prg: WebGLProgram, uniforms: T[]) {
         const locations = new Map<T, WebGLUniformLocation>();
         uniforms.forEach((key) => {
             const u = gl.getUniformLocation(prg, key);
@@ -372,20 +405,7 @@ class Main {
         return locations;
     }
     createAttribute(gl: WebGL2RenderingContext) {
-        const position = [
-            -1.0,
-            1.0,
-            0.0,
-            1.0,
-            1.0,
-            0.0,
-            -1.0,
-            -1.0,
-            0.0,
-            1.0,
-            -1.0,
-            0.0,
-        ];
+        const position = [-1.0, 1.0, 0.0, 1.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0, -1.0, 0.0];
         const texCoord = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
         const index = [0, 2, 1, 2, 3, 1];
 
@@ -399,31 +419,14 @@ class Main {
         const ibo = gl.createBuffer();
         if (!ibo) return;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-        gl.bufferData(
-            gl.ELEMENT_ARRAY_BUFFER,
-            new Int16Array(index),
-            gl.STATIC_DRAW
-        );
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(index), gl.STATIC_DRAW);
 
         gl.bindVertexArray(null);
 
         return vao;
     }
     create2ndAttribute(gl: WebGL2RenderingContext) {
-        const position = [
-            -1.0,
-            1.0,
-            0.0,
-            1.0,
-            1.0,
-            0.0,
-            -1.0,
-            -1.0,
-            0.0,
-            1.0,
-            -1.0,
-            0.0,
-        ];
+        const position = [-1.0, 1.0, 0.0, 1.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0, -1.0, 0.0];
         const texCoord = [0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0];
         const texCoord2 = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
         const index = [0, 2, 1, 2, 3, 1];
@@ -439,31 +442,14 @@ class Main {
         const ibo = gl.createBuffer();
         if (!ibo) return;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-        gl.bufferData(
-            gl.ELEMENT_ARRAY_BUFFER,
-            new Int16Array(index),
-            gl.STATIC_DRAW
-        );
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(index), gl.STATIC_DRAW);
 
         gl.bindVertexArray(null);
 
         return vao;
     }
     create3rdAttribute(gl: WebGL2RenderingContext) {
-        const position = [
-            -1.0,
-            1.0,
-            0.0,
-            1.0,
-            1.0,
-            0.0,
-            -1.0,
-            -1.0,
-            0.0,
-            1.0,
-            -1.0,
-            0.0,
-        ];
+        const position = [-1.0, 1.0, 0.0, 1.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0, -1.0, 0.0];
         const texCoord = [0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0];
         const i = 9;
         const id = [i, i, i, i];
@@ -480,22 +466,13 @@ class Main {
         const ibo = gl.createBuffer();
         if (!ibo) return;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-        gl.bufferData(
-            gl.ELEMENT_ARRAY_BUFFER,
-            new Int16Array(index),
-            gl.STATIC_DRAW
-        );
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(index), gl.STATIC_DRAW);
 
         gl.bindVertexArray(null);
 
         return vao;
     }
-    setVAO(
-        gl: WebGL2RenderingContext,
-        data: number[],
-        location: number,
-        length: number
-    ) {
+    setVAO(gl: WebGL2RenderingContext, data: number[], location: number, length: number) {
         const vbo = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
@@ -514,11 +491,7 @@ class Main {
         if (!ibo) return;
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-        gl.bufferData(
-            gl.ELEMENT_ARRAY_BUFFER,
-            new Int16Array(data),
-            gl.STATIC_DRAW
-        );
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(data), gl.STATIC_DRAW);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         return ibo;
     }
@@ -529,28 +502,12 @@ class Main {
         const texture = gl.createTexture();
         if (!texture) return;
         gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            size,
-            size,
-            0,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            null
-        );
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.framebufferTexture2D(
-            gl.FRAMEBUFFER,
-            gl.COLOR_ATTACHMENT0,
-            gl.TEXTURE_2D,
-            texture,
-            0
-        );
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         return {
@@ -568,37 +525,15 @@ class Main {
             if (!tex) return;
             textures[i] = tex;
             gl.bindTexture(gl.TEXTURE_2D, textures[i]);
-            gl.texImage2D(
-                gl.TEXTURE_2D,
-                0,
-                gl.RGBA32F,
-                size,
-                size,
-                0,
-                gl.RGBA,
-                gl.FLOAT,
-                null
-            );
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(
-                gl.TEXTURE_2D,
-                gl.TEXTURE_WRAP_S,
-                gl.CLAMP_TO_EDGE
-            );
-            gl.texParameteri(
-                gl.TEXTURE_2D,
-                gl.TEXTURE_WRAP_T,
-                gl.CLAMP_TO_EDGE
-            );
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-            gl.framebufferTexture2D(
-                gl.FRAMEBUFFER,
-                gl.COLOR_ATTACHMENT0 + i,
-                gl.TEXTURE_2D,
-                textures[i],
-                0
-            );
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, textures[i], 0);
+            console.log(gl.checkFramebufferStatus(gl.FRAMEBUFFER));
+            console.log(gl.FRAMEBUFFER_COMPLETE);
         }
 
         gl.bindTexture(gl.TEXTURE_2D, null);
@@ -616,8 +551,8 @@ interface Shader {
     vert: WebGLShader;
 }
 
-type LocationName = 'mvpMatrix' | 'img';
-type LocationName2 = 'mvpMatrix' | 'img1' | 'img2' | 'img0';
+type LocationName = 'mvpMatrix' | 'img' | 'flag';
+type LocationName2 = 'mvpMatrix' | 'img1' | 'img2' | 'img3' | 'img4';
 type LocationName4 = 'mvpMatrix' | 'img' | 'split' | 'time';
 
 interface Matrix {
