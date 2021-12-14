@@ -10,6 +10,7 @@ import vPost from './glsl/post.vert';
 import fBlur from './glsl/blur.frag';
 import fFilter from './glsl/filter.frag';
 import fBloom from './glsl/bloom.frag';
+import fBokeh from './glsl/bokeh.frag';
 import { mat4, vec3 } from 'gl-matrix';
 import { Pane } from 'tweakpane';
 
@@ -118,11 +119,20 @@ function createBuffer(gl: WebGL2RenderingContext, width: number, height: number)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+
+    const depthTexture = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT16, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
     return {
         framebuffer,
         texture,
+        depthTexture,
     };
 }
 function setUniformTexture(gl: WebGL2RenderingContext, id: number, texture: WebGLTexture, uLocation: WebGLUniformLocation) {
@@ -152,10 +162,14 @@ const PARAMS = {
     frequent: 0.05,
     multiplier: 4,
     diff: 0.0001,
-    uIntensity: 0.1,
-    uThreshold: 0.478,
+    uIntensity: 0.025,
+    uThreshold: 0.087,
+    near: 0.1,
+    far: 800,
+    offset: 0.5,
+    forcus: 0.5,
 };
-const nSEGMENT = 1000;
+const nSEGMENT = 500;
 const nLINE = 40;
 const pane = new Pane();
 pane.addInput(PARAMS, 'frequent', { min: 0, max: 10, step: 0.0001 });
@@ -163,6 +177,10 @@ pane.addInput(PARAMS, 'multiplier', { min: 0, max: 10, step: 0.001 });
 pane.addInput(PARAMS, 'diff', { min: 0, max: 10, step: 0.0001 });
 pane.addInput(PARAMS, 'uThreshold', { min: 0, max: 1, step: 0.001 });
 pane.addInput(PARAMS, 'uIntensity', { min: 0, max: 1, step: 0.001 });
+pane.addInput(PARAMS, 'near', { min: 0, max: 10, step: 0.1 });
+pane.addInput(PARAMS, 'far', { min: 0, max: 1000, step: 0.1 });
+pane.addInput(PARAMS, 'offset', { min: 0, max: 1, step: 0.01 });
+pane.addInput(PARAMS, 'forcus', { min: 0, max: 1, step: 0.01 });
 
 class Main {
     prepare: Prepare;
@@ -175,6 +193,7 @@ class Main {
     blur4: BlurA;
     bloom: Bloom;
     filter: Filter;
+    bokeh: Bokeh;
 
     mrt: {
         framebuffer: WebGLFramebuffer;
@@ -183,6 +202,7 @@ class Main {
     target: {
         framebuffer: WebGLFramebuffer;
         texture: WebGLTexture;
+        depthTexture: WebGLTexture;
     };
     init() {
         const canvas = document.getElementById('canvas') as HTMLCanvasElement;
@@ -204,6 +224,7 @@ class Main {
         this.bloom = new Bloom(gl);
         this.debug = new Debug(gl);
         this.filter = new Filter(gl);
+        this.bokeh = new Bokeh(gl);
 
         this.mrt = [createMRTBuffer(gl, nLINE, nSEGMENT, 2), createMRTBuffer(gl, nLINE, nSEGMENT, 2)];
         this.target = createBuffer(gl, gl.drawingBufferWidth, gl.drawingBufferHeight)!;
@@ -237,8 +258,10 @@ class Main {
         this.blur3.render(gl, this.filter.texture);
         this.blur4.render(gl, this.filter.texture);
 
-        // this.debug.render(gl, this.filter.texture);
+        // this.debug.render(gl, this.target.texture);
         this.bloom.render(gl, this.target.texture, this.blur1.texture, this.blur2.texture, this.blur3.texture, this.blur4.texture);
+
+        this.bokeh.render(gl, this.bloom.texture, this.blur1.texture, this.target.depthTexture);
         gl.flush();
         requestAnimationFrame(() => this.render(gl, time + 1, !frag));
     }
@@ -297,7 +320,7 @@ class Update {
 class Debug {
     prg: WebGLProgram;
     vao: WebGLVertexArrayObject;
-    location: Map<'vMat' | 'pMat' | 'img', WebGLUniformLocation>;
+    location: Map<'vMat' | 'pMat' | 'img' | 'near' | 'far', WebGLUniformLocation>;
     mat: {
         vMat: mat4;
         pMat: mat4;
@@ -310,7 +333,7 @@ class Debug {
         if (!prg) return;
         this.prg = prg;
 
-        this.location = getUniformLocation(gl, this.prg, ['vMat', 'pMat', 'img']);
+        this.location = getUniformLocation(gl, this.prg, ['vMat', 'pMat', 'img', 'near', 'far']);
 
         this.vao = getPlaneVAO(gl);
 
@@ -333,6 +356,8 @@ class Debug {
         setUniformTexture(gl, 0, tex, this.location.get('img')!);
         gl.uniformMatrix4fv(this.location.get('vMat')!, false, this.mat.vMat);
         gl.uniformMatrix4fv(this.location.get('pMat')!, false, this.mat.pMat);
+        gl.uniform1f(this.location.get('near')!, PARAMS.near);
+        gl.uniform1f(this.location.get('far')!, PARAMS.far);
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
 }
@@ -373,6 +398,7 @@ class View {
     }
     render(gl: WebGL2RenderingContext, texture: WebGLTexture[]) {
         gl.useProgram(this.prg);
+        gl.enable(gl.DEPTH_TEST);
         // uniform set
         setUniformTexture(gl, 0, texture[0], this.location.get('iPos')!);
         setUniformTexture(gl, 1, texture[1], this.location.get('iNorm')!);
@@ -511,6 +537,13 @@ class Bloom {
         vMat: mat4;
         pMat: mat4;
     };
+    buffer: {
+        framebuffer: WebGLFramebuffer;
+        texture: WebGLTexture;
+    };
+    get texture() {
+        return this.buffer.texture;
+    }
     constructor(gl: WebGL2RenderingContext) {
         this.init(gl);
     }
@@ -531,10 +564,14 @@ class Bloom {
             vMat,
             pMat,
         };
+
+        this.buffer = createBuffer(gl, innerWidth, innerHeight);
     }
     render(gl: WebGL2RenderingContext, img1: WebGLTexture, img2: WebGLTexture, img3: WebGLTexture, img4: WebGLTexture, img5: WebGLTexture) {
+        gl.disable(gl.DEPTH_TEST);
         gl.useProgram(this.prg);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.buffer.framebuffer);
+        clear(gl);
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         gl.bindVertexArray(this.vao);
         setUniformTexture(gl, 0, img1, this.location.get('img1')!);
@@ -544,6 +581,48 @@ class Bloom {
         setUniformTexture(gl, 4, img2, this.location.get('img5')!);
         gl.uniformMatrix4fv(this.location.get('vMat')!, false, this.mat.vMat);
         gl.uniformMatrix4fv(this.location.get('pMat')!, false, this.mat.pMat);
+        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    }
+}
+class Bokeh {
+    prg: WebGLProgram;
+    location: Map<string, WebGLUniformLocation>;
+    mat: {
+        vMat: mat4;
+        pMat: mat4;
+    };
+    constructor(gl: WebGL2RenderingContext) {
+        this.init(gl);
+    }
+    init(gl: WebGL2RenderingContext) {
+        const prg = createProgram(gl, vPost, fBokeh, null);
+        if (!prg) return;
+        this.prg = prg;
+        this.location = getUniformLocation(gl, prg, ['vMat', 'pMat', 'srcImg', 'depthImg', 'blurImg', 'near', 'far', 'offset', 'forcus']);
+
+        const vMat = mat4.create();
+        const pMat = mat4.create();
+        mat4.lookAt(vMat, [0, 0, 0.5], [0, 0, 0], [0, 1, 0]);
+        mat4.ortho(pMat, -1, 1, -1, 1, 0.1, 100);
+        this.mat = {
+            vMat,
+            pMat,
+        };
+    }
+    render(gl: WebGL2RenderingContext, srcImg: WebGLTexture, blurImg: WebGLTexture, depthImg: WebGLTexture) {
+        gl.useProgram(this.prg);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+        setUniformTexture(gl, 0, srcImg, this.location.get('srcImg')!);
+        setUniformTexture(gl, 1, blurImg, this.location.get('blurImg')!);
+        setUniformTexture(gl, 2, depthImg, this.location.get('depthImg')!);
+        gl.uniformMatrix4fv(this.location.get('vMat')!, false, this.mat.vMat);
+        gl.uniformMatrix4fv(this.location.get('pMat')!, false, this.mat.pMat);
+        gl.uniform1f(this.location.get('near')!, PARAMS.near);
+        gl.uniform1f(this.location.get('far')!, PARAMS.far);
+        gl.uniform1f(this.location.get('offset')!, PARAMS.offset);
+        gl.uniform1f(this.location.get('forcus')!, PARAMS.forcus);
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
 }
